@@ -1,0 +1,6 @@
+{
+  "name": "Kharcha Tracker",
+  "description": "A clean, beginner-friendly expense tracker specially for Indian students and housewives to manage their monthly capital, set budget limits, and view spending in Hinglish, English, or Hindi.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
