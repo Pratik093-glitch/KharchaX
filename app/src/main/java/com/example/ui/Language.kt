@@ -57,7 +57,7 @@ object Translations {
                 "yesterday" -> "Yesterday"
                 "date" -> "Expense Date"
                 "days_left" -> "days left in month"
-                "suggested_limit" -> "Daily suggestion based on balance: "
+                "suggested_limit" -> "Daily suggestion based on budget limit: "
                 "rupee_symbol" -> "₹"
                 else -> key
             }
@@ -109,7 +109,7 @@ object Translations {
                 "yesterday" -> "कल"
                 "date" -> "खर्चे की तारीख"
                 "days_left" -> "महीने के दिन बचे"
-                "suggested_limit" -> "बैलेंस के आधार पर आज की सलाह: "
+                "suggested_limit" -> "बजट लिमिट के आधार पर आज की सलाह: "
                 "rupee_symbol" -> "₹"
                 else -> key
             }
@@ -161,7 +161,7 @@ object Translations {
                 "yesterday" -> "Kal"
                 "date" -> "Kharch ki Date"
                 "days_left" -> "din bache hain"
-                "suggested_limit" -> "Balance ke hisab se roj ka kharcha: "
+                "suggested_limit" -> "Budget limit ke hisab se roj ka kharcha: "
                 "rupee_symbol" -> "₹"
                 else -> key
             }

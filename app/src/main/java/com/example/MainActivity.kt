@@ -6,6 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Surface
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -24,10 +26,13 @@ class MainActivity : ComponentActivity() {
       val isDarkMode by viewModel.isDarkMode.collectAsState()
 
       MyApplicationTheme(darkTheme = isDarkMode, dynamicColor = false) {
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+        Surface(
+          modifier = Modifier.fillMaxSize(),
+          color = MaterialTheme.colorScheme.background
+        ) {
           MainScreen(
             viewModel = viewModel,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.fillMaxSize()
           )
         }
       }

@@ -2,9 +2,13 @@ package com.example.ui
 
 import android.app.DatePickerDialog
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -20,7 +24,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -64,7 +74,19 @@ fun MainScreen(
 
     val balanceLeft = (monthlyCapital - totalSpentThisMonth).coerceAtLeast(0.0)
     val daysRemaining = viewModel.getDaysRemainingInMonth()
-    val suggestedDailyLimit = if (daysRemaining > 0) balanceLeft / daysRemaining else 0.0
+    val suggestedDailyLimit = if (limitAmount > 0.0) {
+        if (limitType == "DAILY") {
+            limitAmount
+        } else {
+            if (daysRemaining > 0) {
+                (limitAmount - totalSpentThisMonth).coerceAtLeast(0.0) / daysRemaining
+            } else {
+                0.0
+            }
+        }
+    } else {
+        if (daysRemaining > 0) balanceLeft / daysRemaining else 0.0
+    }
 
     // Is Limit Exceeded?
     val isLimitExceeded = if (limitType == "DAILY") {
@@ -209,7 +231,7 @@ fun HeaderSection(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -217,20 +239,20 @@ fun HeaderSection(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Elegant circular avatar badge showing initials
+            // Elegant circular avatar badge showing initials (matching mockup's solid purple style)
             Box(
                 modifier = Modifier
-                    .size(46.dp)
+                    .size(44.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer)
+                    .background(Color(0xFF6C5DD3))
                     .testTag("user_avatar_badge"),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = initials,
-                    fontSize = 15.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = Color.White,
                     letterSpacing = 1.sp
                 )
             }
@@ -238,15 +260,15 @@ fun HeaderSection(
             Column {
                 Text(
                     text = Translations.get("app_title", language),
-                    fontSize = 20.sp,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
                     text = if (language == AppLanguage.HINDI) "आसान बजट ट्रैकर" else "Aasaan Budget Tracker",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Normal,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold, // Bolder for high solar contrast
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f) // High contrast
                 )
             }
         }
@@ -255,44 +277,367 @@ fun HeaderSection(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Language selector button cycles language
-            IconButton(
-                onClick = {
-                    val nextLang = when (language) {
-                        AppLanguage.HINGLISH -> AppLanguage.ENGLISH
-                        AppLanguage.ENGLISH -> AppLanguage.HINDI
-                        AppLanguage.HINDI -> AppLanguage.HINGLISH
-                    }
-                    onLanguageToggle(nextLang)
-                },
+            // Elegant global language selector pill instead of flags
+            Row(
                 modifier = Modifier
-                    .size(40.dp)
-                    .background(
-                        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f),
-                        CircleShape
-                    )
-                    .testTag("language_toggle_btn")
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f))
+                    .clickable {
+                        val nextLang = when (language) {
+                            AppLanguage.HINGLISH -> AppLanguage.ENGLISH
+                            AppLanguage.ENGLISH -> AppLanguage.HINDI
+                            AppLanguage.HINDI -> AppLanguage.HINGLISH
+                        }
+                        onLanguageToggle(nextLang)
+                    }
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .testTag("language_toggle_btn"),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                val flag = when (language) {
-                    AppLanguage.ENGLISH -> "🇬🇧"
-                    AppLanguage.HINDI -> "🇮🇳"
-                    AppLanguage.HINGLISH -> "🗣️"
-                }
-                Text(flag, fontSize = 18.sp)
+                Text("🌐", fontSize = 13.sp)
+                Text(
+                    text = when (language) {
+                        AppLanguage.ENGLISH -> "EN"
+                        AppLanguage.HINDI -> "हिन्दी"
+                        AppLanguage.HINGLISH -> "Hinglish"
+                    },
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
             }
 
-            // Dark/Light Mode toggle button
+            // Dark/Light Mode toggle button (matching mockup colors)
             IconButton(
                 onClick = { onThemeToggle(!isDarkMode) },
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(38.dp)
                     .background(
-                        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f),
+                        if (isDarkMode) Color(0xFF1E1C30) else Color(0xFFFFEACC),
                         CircleShape
                     )
                     .testTag("theme_toggle_btn")
             ) {
-                Text(if (isDarkMode) "☀️" else "🌙", fontSize = 18.sp)
+                Text(if (isDarkMode) "☀️" else "🌙", fontSize = 16.sp)
+            }
+        }
+    }
+}
+
+fun getCategoryColor(category: String): Color {
+    return when (category) {
+        "Food" -> Color(0xFFF57C00) // Vibrant Amber/Orange
+        "Travel" -> Color(0xFF1976D2) // Vibrant Blue
+        "Study" -> Color(0xFF7B1FA2) // Vibrant Purple
+        "Recharge" -> Color(0xFF0097A7) // Vibrant Teal/Cyan
+        else -> Color(0xFF388E3C) // Vibrant Green
+    }
+}
+
+@Composable
+fun WalletIllustration(
+    isDarkMode: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier.size(160.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        // Shadow at the bottom using Canvas
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(40.dp)
+                .align(Alignment.BottomCenter)
+                .offset(y = (-6).dp)
+        ) {
+            drawOval(
+                color = if (isDarkMode) Color(0xFF161524) else Color(0xFFE2E0FD),
+                topLeft = Offset(size.width * 0.15f, 0f),
+                size = Size(size.width * 0.7f, size.height)
+            )
+        }
+
+        // Green plants / leaves peeking from behind
+        Canvas(
+            modifier = Modifier
+                .size(120.dp)
+                .offset(y = (-10).dp)
+        ) {
+            // Background plant stems & leaves - Left side
+            val leftStemPath = androidx.compose.ui.graphics.Path().apply {
+                moveTo(size.width * 0.45f, size.height * 0.75f)
+                quadraticTo(size.width * 0.2f, size.height * 0.45f, size.width * 0.15f, size.height * 0.35f)
+            }
+            drawPath(
+                path = leftStemPath,
+                color = Color(0xFF22C55E),
+                style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
+            )
+            // Draw small leaves on Left stem
+            drawOval(
+                color = Color(0xFF22C55E),
+                topLeft = Offset(size.width * 0.12f, size.height * 0.25f),
+                size = Size(16.dp.toPx(), 10.dp.toPx())
+            )
+            drawOval(
+                color = Color(0xFF49C872),
+                topLeft = Offset(size.width * 0.22f, size.height * 0.42f),
+                size = Size(14.dp.toPx(), 9.dp.toPx())
+            )
+
+            // Background plant stems & leaves - Right side
+            val rightStemPath = androidx.compose.ui.graphics.Path().apply {
+                moveTo(size.width * 0.55f, size.height * 0.75f)
+                quadraticTo(size.width * 0.8f, size.height * 0.48f, size.width * 0.85f, size.height * 0.38f)
+            }
+            drawPath(
+                path = rightStemPath,
+                color = Color(0xFF22C55E),
+                style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
+            )
+            // Draw small leaves on Right stem
+            drawOval(
+                color = Color(0xFF22C55E),
+                topLeft = Offset(size.width * 0.78f, size.height * 0.32f),
+                size = Size(16.dp.toPx(), 10.dp.toPx())
+            )
+            drawOval(
+                color = Color(0xFF86EFAC),
+                topLeft = Offset(size.width * 0.68f, size.height * 0.48f),
+                size = Size(12.dp.toPx(), 8.dp.toPx())
+            )
+        }
+
+        // Card 1 peeking out of wallet (Rear top card) - Soft blue-lilac
+        Box(
+            modifier = Modifier
+                .offset(x = (-14).dp, y = (-22).dp)
+                .graphicsLayer(rotationZ = -14f)
+                .size(46.dp, 36.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(
+                    if (isDarkMode) Color(0xFF383562) else Color(0xFFD4CDFC)
+                )
+        )
+
+        // Card 2 peeking out of wallet (Front top card) - Pastel purple/white
+        Box(
+            modifier = Modifier
+                .offset(x = 10.dp, y = (-18).dp)
+                .graphicsLayer(rotationZ = -5f)
+                .size(42.dp, 34.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(
+                    if (isDarkMode) Color(0xFF221F45) else Color(0xFFEBE7FF)
+                )
+        )
+
+        // Main body wallet - tilted slightly with drop shadow
+        Box(
+            modifier = Modifier
+                .offset(y = (-6).dp)
+                .graphicsLayer {
+                    rotationZ = -8f
+                    shadowElevation = 24f // Stable static Float value to prevent runtime Density.toPx NoSuchMethod compile/run mismatches on different OS versions
+                    clip = true
+                    shape = RoundedCornerShape(22.dp)
+                }
+                .size(96.dp, 70.dp)
+                .background(
+                    if (isDarkMode) Color(0xFF443D8A) else Color(0xFF7E69E6)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            // Flap cover overlay dividing the wallet body
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.65f)
+                    .align(Alignment.BottomCenter)
+                    .background(
+                        if (isDarkMode) Color(0xFF353070) else Color(0xFF6C54DB)
+                    )
+            ) {
+                // Leather wallet clasp horizontal pill
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .offset(x = 4.dp, y = (-10).dp)
+                        .size(24.dp, 16.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(
+                            if (isDarkMode) Color(0xFF231F4F) else Color(0xFF4C30C2)
+                        )
+                ) {
+                    // Golden/metal press button
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .padding(start = 4.dp)
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFF59E0B))
+                    )
+                }
+            }
+
+            // Beautiful crisp bold Rupee symbol printed on the front center of wallet
+            Text(
+                text = "₹",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White,
+                modifier = Modifier.offset(y = (-4).dp)
+            )
+        }
+
+        // Glowing stars & sparkles around
+        Text(
+            "✨",
+            fontSize = 20.sp,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = (-14).dp, y = 10.dp)
+        )
+        Text(
+            "✨",
+            fontSize = 14.sp,
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .offset(x = 10.dp, y = (-32).dp)
+        )
+    }
+}
+
+@Composable
+fun CategoryPieChart(
+    expenses: List<Expense>,
+    language: AppLanguage,
+    modifier: Modifier = Modifier
+) {
+    if (expenses.isEmpty()) return
+
+    val categoryTotals = remember(expenses) {
+        val totals = mutableMapOf<String, Float>()
+        expenses.forEach { exp ->
+            val cat = exp.category
+            totals[cat] = (totals[cat] ?: 0f) + exp.amount.toFloat()
+        }
+        totals.toList().sortedByDescending { it.second }
+    }
+
+    val totalSum = remember(categoryTotals) { categoryTotals.sumOf { it.second.toDouble() }.toFloat() }
+    
+    if (totalSum <= 0f) return
+
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        modifier = modifier.fillMaxWidth(),
+        border = CardDefaults.outlinedCardBorder()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = if (language == AppLanguage.HINDI) "खर्च का विश्लेषण 📊" else if (language == AppLanguage.HINGLISH) "Kharcha Analysis 📊" else "Expense Analysis 📊",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.align(Alignment.Start)
+            )
+            
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                // Pie Canvas
+                Box(
+                    modifier = Modifier.size(100.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val strokeWidthPx = 18f
+                        val arcSize = size.width - strokeWidthPx
+                        var startAngle = -90f
+                        categoryTotals.forEach { (cat, amt) ->
+                            val sweepAngle = (amt / totalSum) * 360f
+                            drawArc(
+                                color = getCategoryColor(cat),
+                                startAngle = startAngle,
+                                sweepAngle = sweepAngle,
+                                useCenter = false,
+                                topLeft = androidx.compose.ui.geometry.Offset(strokeWidthPx / 2f, strokeWidthPx / 2f),
+                                size = androidx.compose.ui.geometry.Size(arcSize, arcSize),
+                                style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round)
+                            )
+                            startAngle += sweepAngle
+                        }
+                    }
+                    
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = if (language == AppLanguage.HINDI) "कुल" else "Total",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "₹${"%,.0f".format(totalSum)}",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                // Legends
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    categoryTotals.take(5).forEach { (cat, amt) ->
+                        val pct = (amt / totalSum) * 100f
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(getCategoryColor(cat))
+                            )
+                            val catEmoji = when (cat) {
+                                "Food" -> "🍛"
+                                "Travel" -> "🚗"
+                                "Study" -> "📚"
+                                "Recharge" -> "📱"
+                                else -> "🪙"
+                            }
+                            Text(
+                                text = "$catEmoji ${Translations.get(cat.lowercase(), language)} (${"%.0f".format(pct)}%)",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -321,13 +666,47 @@ fun DashboardScreen(
 ) {
     var showAddExpenseSheet by remember { mutableStateOf(false) }
 
+    // Collect dynamic dark mode from ViewModel for pixel parity
+    val isDarkMode by viewModel.isDarkMode.collectAsState()
+
+    // Dynamic, smooth, active-limit spent percentage
+    val spentPercentage = remember(limitAmount, limitType, totalSpentToday, totalSpentThisMonth, monthlyCapital) {
+        if (limitAmount > 0) {
+            val spent = if (limitType == "DAILY") totalSpentToday else totalSpentThisMonth
+            (spent / limitAmount).toFloat().coerceIn(0f, 1f)
+        } else if (monthlyCapital > 0) {
+            (totalSpentThisMonth / monthlyCapital).toFloat().coerceIn(0f, 1f)
+        } else {
+            0f
+        }
+    }
+    
+    val animatedProgress by animateFloatAsState(
+        targetValue = spentPercentage,
+        animationSpec = tween(durationMillis = 650, easing = FastOutSlowInEasing),
+        label = "progress"
+    )
+
+    // Dynamic color tuning matching the reference mockup side-by-side:
+    // Solid saturated brand purple (#614BC3) inside light mode, and cozy dark-indigo (#1E1D31) inside dark mode.
+    // Dynamic crash-crimson indicators when the current limits are exceeded.
+    val cardBgColor = remember(isLimitExceeded, isDarkMode) {
+        if (isLimitExceeded) {
+            if (isDarkMode) Color(0xFF5A1414) else Color(0xFFBA1A1A)
+        } else {
+            if (isDarkMode) Color(0xFF211F41) else Color(0xFF614BC3)
+        }
+    }
+    
+    val cardOnColor = Color.White
+
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp)
+            contentPadding = PaddingValues(top = 10.dp, bottom = 100.dp) // Optimized padding to eliminate huge top gap
         ) {
             // Welcome Header / General Role Dynamic Tag
             item {
@@ -339,6 +718,16 @@ fun DashboardScreen(
                     Translations.get(roleKey, language)
                 } else {
                     Translations.get("personal", language)
+                }
+                
+                // Set custom emoji inside the role capsule to replicate screenshot profile badges
+                val roleEmoji = when (roleKey) {
+                    "student" -> "🎓"
+                    "housewife" -> "🏡"
+                    "salaried" -> "💼"
+                    "freelancer" -> "💻"
+                    "business" -> "📈"
+                    else -> "👤"
                 }
                 
                 Row(
@@ -356,34 +745,37 @@ fun DashboardScreen(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = roleTag,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
+                        
+                        // Beautiful role capsule mirroring reference images
+                        Row(
                             modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
                                 .background(
-                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
-                                    RoundedCornerShape(8.dp)
+                                    if (isDarkMode) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+                                    else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
                                 )
-                                .padding(horizontal = 8.dp, vertical = 2.dp)
-                        )
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = roleTag,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isDarkMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(text = roleEmoji, fontSize = 11.sp)
+                        }
                     }
                 }
             }
 
-            // Summary Card showing local capital and limits
+            // Summary Card showing local capital and limits matching the clean flat mockup design
             item {
-                val spentPercentage = if (monthlyCapital > 0) (totalSpentThisMonth / monthlyCapital).toFloat().coerceIn(0f, 1f) else 0f
-                
                 Card(
                     shape = RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (isLimitExceeded) {
-                            MaterialTheme.colorScheme.errorContainer
-                        } else {
-                            MaterialTheme.colorScheme.primary
-                        }
+                        containerColor = cardBgColor
                     ),
                     modifier = Modifier.fillMaxWidth(),
                     elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
@@ -400,64 +792,91 @@ fun DashboardScreen(
                         ) {
                             Text(
                                 text = Translations.get("balance_left", language).uppercase(),
-                                fontSize = 11.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.2.sp,
-                                color = if (isLimitExceeded) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                                color = cardOnColor.copy(alpha = 0.82f)
                             )
                             
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = if (isLimitExceeded) {
-                                    MaterialTheme.colorScheme.error
-                                } else {
-                                    MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f)
-                                }
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                val limitLabel = if (limitType == "DAILY") {
-                                    Translations.get("daily_reset", language)
-                                } else {
-                                    Translations.get("monthly_reset", language)
+                                // Direct elegant Set Budget action directly on the metric card
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = cardOnColor.copy(alpha = 0.2f),
+                                    modifier = Modifier.clickable { onOpenCapitalSetup() }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("⚙️", fontSize = 10.sp)
+                                        Text(
+                                            text = if (language == AppLanguage.HINDI) "बजट बदलें" else if (language == AppLanguage.HINGLISH) "Budget" else "Set Budget",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = cardOnColor
+                                        )
+                                    }
                                 }
-                                Text(
-                                    text = limitLabel,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isLimitExceeded) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                                )
+
+                                // Monthly reset badge info capsule
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = cardOnColor.copy(alpha = 0.20f)
+                                ) {
+                                    val limitLabel = if (limitType == "DAILY") {
+                                        Translations.get("daily_reset", language)
+                                    } else {
+                                        Translations.get("monthly_reset", language)
+                                    }
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("🔄", fontSize = 10.sp)
+                                        Text(
+                                            text = limitLabel,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = cardOnColor
+                                        )
+                                    }
+                                }
                             }
                         }
                         
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "₹${"%,.2f".format(balanceLeft)}",
-                            fontSize = 38.sp,
+                            text = "₹${"%,.0f".format(balanceLeft)}", // Clean balanced whole typography
+                            fontSize = 32.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (isLimitExceeded) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimary
+                            color = cardOnColor
                         )
 
                         Spacer(modifier = Modifier.height(14.dp))
                         
-                        // Styled custom progress bar matching CSS .h-2 .bg-white/20 with .bg-[#D0BCFF]
+                        // Beautiful Smooth Rounded Progress Bar Fill (Never looks incomplete)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(8.dp)
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(
-                                    if (isLimitExceeded) MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.2f)
-                                    else MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f)
-                                )
+                                .background(cardOnColor.copy(alpha = 0.2f))
                         ) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxHeight()
-                                    .fillMaxWidth(spentPercentage)
+                                    .fillMaxWidth(animatedProgress) // Smoothly animated width transitions or fills
                                     .clip(RoundedCornerShape(4.dp))
                                     .background(
-                                        if (isLimitExceeded) MaterialTheme.colorScheme.onErrorContainer
-                                        else MaterialTheme.colorScheme.tertiary
+                                        if (isLimitExceeded) Color.White
+                                        else if (isDarkMode) Color(0xFFD0BCFF)
+                                        else Color(0xFFECE7FF)
                                     )
                             )
                         }
@@ -471,40 +890,53 @@ fun DashboardScreen(
                             Column {
                                 Text(
                                     text = Translations.get("monthly_capital", language),
-                                    fontSize = 11.sp,
-                                    color = if (isLimitExceeded) MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = cardOnColor.copy(alpha = 0.85f)
                                 )
-                                Text(
-                                    text = "₹${"%,.0f".format(monthlyCapital)}",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isLimitExceeded) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimary
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text("📥", fontSize = 12.sp)
+                                    Text(
+                                        text = "₹${"%,.0f".format(monthlyCapital)}",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = cardOnColor
+                                    )
+                                }
                             }
 
                             Column(horizontalAlignment = Alignment.End) {
                                 Text(
                                     text = Translations.get("budget_limit", language),
-                                    fontSize = 11.sp,
-                                    color = if (isLimitExceeded) MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = cardOnColor.copy(alpha = 0.85f)
                                 )
-                                Text(
-                                    text = "₹${"%,.0f".format(limitAmount)}",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isLimitExceeded) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimary
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text("🛡️", fontSize = 12.sp)
+                                    Text(
+                                        text = "₹${"%,.0f".format(limitAmount)}",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = cardOnColor
+                                    )
+                                }
                             }
                         }
 
                         Spacer(modifier = Modifier.height(12.dp))
                         HorizontalDivider(
-                            color = if (isLimitExceeded) MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.15f) 
-                                    else MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.15f)
+                            color = cardOnColor.copy(alpha = 0.15f)
                         )
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // Spent stats
+                        // Spent stats with consistent, readable dimensions
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -512,56 +944,91 @@ fun DashboardScreen(
                             Column {
                                 Text(
                                     text = Translations.get("today_spent", language),
-                                    fontSize = 11.sp,
-                                    color = if (isLimitExceeded) MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = cardOnColor.copy(alpha = 0.85f)
                                 )
-                                Text(
-                                    text = "₹${"%,.1f".format(totalSpentToday)}",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isLimitExceeded) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimary
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = if (isLimitExceeded) "⚠️" else "✅", 
+                                        fontSize = 12.sp
+                                    )
+                                    Text(
+                                        text = "₹${"%,.0f".format(totalSpentToday)}",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = cardOnColor
+                                    )
+                                }
                             }
 
                             Column(horizontalAlignment = Alignment.End) {
                                 Text(
                                     text = Translations.get("month_spent", language),
-                                    fontSize = 11.sp,
-                                    color = if (isLimitExceeded) MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = cardOnColor.copy(alpha = 0.85f)
                                 )
-                                Text(
-                                    text = "₹${"%,.1f".format(totalSpentThisMonth)}",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isLimitExceeded) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimary
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text("⏱️", fontSize = 12.sp)
+                                    Text(
+                                        text = "₹${"%,.0f".format(totalSpentThisMonth)}",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = cardOnColor
+                                    )
+                                }
                             }
                         }
 
                         Spacer(modifier = Modifier.height(14.dp))
                         
-                        // Alert warning pill / Safe indicator
+                        // Alert warning pill / Safe indicator matching exactly the green and red themes
+                        val statusBg = if (isLimitExceeded) {
+                            if (isDarkMode) Color(0x44FF8A80) else Color(0xFFFCE8E6)
+                        } else {
+                            if (isDarkMode) Color(0x2249C872) else Color(0xFFE8F6EE)
+                        }
+                        
+                        val statusOnColor = if (isLimitExceeded) {
+                            if (isDarkMode) Color(0xFFFF8A80) else Color(0xFFC5221F)
+                        } else {
+                            if (isDarkMode) Color(0xFF49C872) else Color(0xFF198754)
+                        }
+
                         Surface(
                             shape = RoundedCornerShape(12.dp),
-                            color = if (isLimitExceeded) {
-                                MaterialTheme.colorScheme.onError
-                            } else {
-                                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f)
-                            },
+                            color = statusBg,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(
-                                text = if (isLimitExceeded) {
-                                    Translations.get("limit_warning", language)
-                                } else {
-                                    Translations.get("limit_ok", language)
-                                },
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isLimitExceeded) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSecondaryContainer,
+                            Row(
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                textAlign = TextAlign.Center
-                            )
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (isLimitExceeded) "⚠️ " else "🛡️ ",
+                                    color = statusOnColor,
+                                    fontSize = 12.sp
+                                )
+                                Text(
+                                    text = if (isLimitExceeded) {
+                                        Translations.get("limit_warning", language)
+                                    } else {
+                                        Translations.get("limit_ok", language)
+                                    },
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = statusOnColor,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
@@ -569,100 +1036,16 @@ fun DashboardScreen(
                         // Days remaining auto suggestion calculator for Housewife / Student budget
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Text("💡 ", fontSize = 12.sp)
                             Text(
-                                text = "${Translations.get("suggested_limit", language)} ₹${"%.1f".format(suggestedDailyLimit)}/day ($daysRemaining ${Translations.get("days_left", language)})",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = if (isLimitExceeded) MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
+                                text = "${Translations.get("suggested_limit", language)} ₹${"%.0f".format(suggestedDailyLimit)}/day ($daysRemaining ${Translations.get("days_left", language)})",
+                                fontSize = 12.sp, // Tighter contrast and size
+                                fontWeight = FontWeight.Bold,
+                                color = cardOnColor,
                                 textAlign = TextAlign.Center
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Quick side-by-side action Grid (from HTML Theme)
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Set Capital Dialog Trigger Card
-                    Card(
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface
-                        ),
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { onOpenCapitalSetup() },
-                        border = CardDefaults.outlinedCardBorder()
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(14.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .background(
-                                        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f),
-                                        CircleShape
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("💳", fontSize = 20.sp)
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = if (language == AppLanguage.HINDI) "बजट सेट करें" else if (language == AppLanguage.HINGLISH) "Set Capital" else "Set Budget",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-
-                    // Add Expense Bottom Sheet Trigger Card
-                    Card(
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f)
-                        ),
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { showAddExpenseSheet = true },
-                        border = CardDefaults.outlinedCardBorder()
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(14.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .background(
-                                        MaterialTheme.colorScheme.primary,
-                                        CircleShape
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("➕", fontSize = 18.sp, color = MaterialTheme.colorScheme.onPrimary)
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = Translations.get("add_expense", language),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
                         }
                     }
@@ -698,16 +1081,19 @@ fun DashboardScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 32.dp),
+                            .padding(vertical = 36.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("🌸", fontSize = 48.sp)
-                        Spacer(modifier = Modifier.height(8.dp))
+                        // High-fidelity custom illustrated visual wallet with sparkles & plants
+                        WalletIllustration(isDarkMode = isDarkMode)
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
                         Text(
                             text = Translations.get("no_expenses_yet", language),
                             fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
                             textAlign = TextAlign.Center
                         )
                     }
@@ -723,6 +1109,26 @@ fun DashboardScreen(
                 }
             }
         }
+
+        // Play-Store class Floating Action Button for prompt, easy logging anywhere
+        ExtendedFloatingActionButton(
+            onClick = { showAddExpenseSheet = true },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = 16.dp, end = 16.dp)
+                .testTag("floating_add_expense_btn"),
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            shape = CircleShape,
+            icon = { Text("➕", fontSize = 16.sp) },
+            text = {
+                Text(
+                     text = if (language == AppLanguage.HINDI) "खर्चा जोड़ें" else if (language == AppLanguage.HINGLISH) "Kharcha Jodo" else "Add Expense",
+                     fontWeight = FontWeight.Bold,
+                     fontSize = 12.sp
+                )
+            }
+        )
 
         // Add Expense Modal Bottom Sheet
         if (showAddExpenseSheet) {
@@ -1010,7 +1416,7 @@ fun ExpenseItemRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 6.dp), // Extra padding constraint
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -1028,11 +1434,12 @@ fun ExpenseItemRow(
                     else -> "🪙"
                 }
 
+                // Vibrant, dedicated category-colored badge
                 Box(
                     modifier = Modifier
                         .size(44.dp)
                         .background(
-                            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                            getCategoryColor(expense.category).copy(alpha = 0.15f),
                             CircleShape
                         ),
                     contentAlignment = Alignment.Center
@@ -1085,11 +1492,12 @@ fun ExpenseItemRow(
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(end = 8.dp) // Generous right padding to breathe
             ) {
                 Text(
-                    text = "₹${"%,.1f".format(expense.amount)}",
-                    fontSize = 16.sp,
+                    text = "₹${"%,.0f".format(expense.amount)}", // Rounded whole typography
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -1103,7 +1511,7 @@ fun ExpenseItemRow(
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = Translations.get("delete", language),
-                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
+                        tint = MaterialTheme.colorScheme.error
                     )
                 }
             }
